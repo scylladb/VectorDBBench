@@ -1937,6 +1937,42 @@ CaseConfigParamInput_ef_construction_LanceDB = CaseConfigInput(
     isDisplayed=lambda config: config.get(CaseConfigParamType.IndexType, None) == IndexType.HNSW.value,
 )
 
+CaseConfigParamInput_m_ScyllaDB = CaseConfigInput(
+    label=CaseConfigParamType.m,
+    displayLabel="m",
+    inputHelp="m parameter in HNSW",
+    inputType=InputType.Number,
+    inputConfig={
+        "min": 0,
+        "max": 1000,
+        "value": 16,
+    },
+)
+
+CaseConfigParamInput_ef_construction_ScyllaDB = CaseConfigInput(
+    label=CaseConfigParamType.ef_construction,
+    displayLabel="ef_construction",
+    inputHelp="ef_construction parameter in HNSW",
+    inputType=InputType.Number,
+    inputConfig={
+        "min": 1,
+        "max": 1024,
+        "value": 128,
+    },
+)
+
+CaseConfigParamInput_ef_search_ScyllaDB = CaseConfigInput(
+    label=CaseConfigParamType.ef_search,
+    displayLabel="ef_search",
+    inputHelp="ef_search parameter in HNSW",
+    inputType=InputType.Number,
+    inputConfig={
+        "min": 1,
+        "max": 1024,
+        "value": 128,
+    },
+)
+
 LanceDBLoadConfig = [
     CaseConfigParamInput_IndexType_LanceDB,
     CaseConfigParamInput_num_partitions_LanceDB,
@@ -1973,6 +2009,17 @@ AWSOpenSearchPerformanceConfig = [
     CaseConfigParamInput_NUMBER_OF_SHARDS_AWSOpensearch,
     CaseConfigParamInput_NUMBER_OF_REPLICAS_AWSOpensearch,
     CaseConfigParamInput_INDEX_THREAD_QTY_AWSOpensearch,
+]
+
+ScyllaDBLoadingConfig = [
+    CaseConfigParamInput_ef_construction_ScyllaDB,
+    CaseConfigParamInput_m_ScyllaDB,
+]
+
+ScyllaDBPerformanceConfig = [
+    CaseConfigParamInput_ef_construction_ScyllaDB,
+    CaseConfigParamInput_m_ScyllaDB,
+    CaseConfigParamInput_ef_search_ScyllaDB
 ]
 
 # Map DB to config
@@ -2045,6 +2092,10 @@ CASE_CONFIG_MAP = {
         CaseLabel.Load: LanceDBLoadConfig,
         CaseLabel.Performance: LanceDBPerformanceConfig,
     },
+    DB.ScyllaDB: {
+        CaseLabel.Load: ScyllaDBLoadingConfig,
+        CaseLabel.Performance: ScyllaDBPerformanceConfig,
+    }
 }
 
 

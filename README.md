@@ -58,6 +58,7 @@ All the database client supported
 | tidb                     | `pip install vectordb-bench[tidb]`          |
 | vespa                    | `pip install vectordb-bench[vespa]`         |
 | oceanbase                | `pip install vectordb-bench[oceanbase]`     |
+| scylladb                 | `pip install vectordb-bench[scylladb]`      |
 
 ### Run
 
