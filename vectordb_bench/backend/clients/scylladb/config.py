@@ -7,10 +7,12 @@ from ..api import DBCaseConfig, DBConfig, IndexType, MetricType
 class ScyllaDBConfig(DBConfig, BaseModel):
     keyspace: str = "vdb_bench"
     cluster_uris: str = "127.0.0.1"
+    replication_factor: int = 1
     def to_dict(self) -> dict:
         return {
             "keyspace": self.keyspace,
             "cluster_uris": self.cluster_uris.split(","),
+            "replication_factor": self.replication_factor,
         }
 
 
