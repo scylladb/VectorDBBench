@@ -48,7 +48,10 @@ class ScyllaDB(VectorDB):
         self.session = self.cluster.connect()
 
         log.info(f"Creating keyspace: {keyspace}")
-        self.session.execute(f"CREATE KEYSPACE IF NOT EXISTS {keyspace} WITH replication = {{'class': 'SimpleStrategy', 'replication_factor': '1'}} AND tablets = {{'enabled': 'false'}}")
+        class_name = "SimpleStrategy" if self.db_config.get("replication_factor") == 1 else "NetworkTopologyStrategy"
+        self.session.execute(f"CREATE KEYSPACE IF NOT EXISTS {keyspace} "
+                             f"WITH replication = {{'class': '{class_name}', 'replication_factor': '{self.db_config["replication_factor"]}'}} "
+                             f"AND tablets = {{'enabled': 'false'}}")
         self.session.set_keyspace(keyspace)
         
         if self.drop_old_table:
