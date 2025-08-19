@@ -102,7 +102,7 @@ class ScyllaDB(VectorDB):
     ) -> (int, Exception | None):
         """Insert embeddings into ScyllaDB"""
         try:
-            batch = BatchStatement(consistency_level=ConsistencyLevel.ANY, batch_type=BatchType.UNLOGGED)
+            batch = BatchStatement(consistency_level=ConsistencyLevel.ONE, batch_type=BatchType.UNLOGGED)
             for key, embedding in zip(metadata, embeddings, strict=False):
                 batch.add(self.prepared_insert, (key, embedding))
             self.session.execute(batch)
