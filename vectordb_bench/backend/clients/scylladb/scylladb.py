@@ -1,16 +1,20 @@
 import logging
 import time
+import environs
 from contextlib import contextmanager
 
 import cassandra
 from cassandra import ConsistencyLevel
 from cassandra.cluster import Cluster
 from cassandra.query import BatchStatement, BatchType
+from cassandra.auth import PlainTextAuthProvider
 
 from ..api import VectorDB
 from .config import ScyllaDBIndexConfig
 
 log = logging.getLogger(__name__)
+env = environs.Env()
+env.read_env(path=".env", recurse=False)
 
 
 class ScyllaDBError(Exception):
@@ -38,12 +42,19 @@ class ScyllaDB(VectorDB):
         self.vector_field = vector_field
         self.drop_old_table = drop_old
         self.index_params = self.index_config.index_param()
+        self.username = env("SCYLLADB_USERNAME", default=None)
+        self.password = env("SCYLLADB_PASSWORD", default=None)
+        self.auth_provider = None
+        if self.username and self.password:
+            self.auth_provider = PlainTextAuthProvider(self.username, self.password)
+        elif self.username or self.password:
+            log.warning("Only one of username or password is set. Authentication may fail.")
 
         log.info(f"Using {cassandra.__version__} version of Cassandra driver")
         log.info(f"index params: {self.index_params}")
         uri = self.db_config["cluster_uris"]
         keyspace = self.db_config["keyspace"]
-        self.cluster = Cluster(uri)
+        self.cluster = Cluster(uri, auth_provider=self.auth_provider)
         log.info(f"Connecting to ScyllaDB cluster at {uri}")
         self.session = self.cluster.connect()
 
@@ -69,7 +80,7 @@ class ScyllaDB(VectorDB):
         try:
             uri = self.db_config["cluster_uris"]
             keyspace = self.db_config["keyspace"]
-            self.cluster = Cluster(uri)
+            self.cluster = Cluster(uri, auth_provider=self.auth_provider)
             self.session = self.cluster.connect(keyspace)
             self.prepared_insert = self.session.prepare(f"INSERT INTO {self.table_name} ({self.id_field}, {self.vector_field}) VALUES (?, ?)")
             self.prepared_lookup = self.session.prepare(f"SELECT {self.id_field} FROM {self.table_name} ORDER BY {self.vector_field} ANN OF ? LIMIT ?")
