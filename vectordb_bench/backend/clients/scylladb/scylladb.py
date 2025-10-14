@@ -55,10 +55,10 @@ class ScyllaDB(VectorDB):
         self.session.set_keyspace(keyspace)
         
         if self.drop_old_table:
-                log.info(f"Dropping old table: {self.table_name}")
-                self.session.execute(f"DROP TABLE IF EXISTS {self.table_name}")
-        self._create_table()
-        self._create_index()
+            log.info(f"Dropping old table: {self.table_name}")
+            self.session.execute(f"DROP TABLE IF EXISTS {self.table_name}")
+            self._create_table()
+            self._create_index()
 
         self.cluster = None
         self.session = None
