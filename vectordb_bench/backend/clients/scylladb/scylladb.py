@@ -57,6 +57,7 @@ class ScyllaDB(VectorDB):
         self.cluster = Cluster(uri, auth_provider=self.auth_provider)
         log.info(f"Connecting to ScyllaDB cluster at {uri}")
         self.session = self.cluster.connect()
+        log.info(f"Shard awareness status: {self.cluster.is_shard_aware()}")
 
         log.info(f"Creating keyspace: {keyspace}")
         class_name = "SimpleStrategy" if self.db_config.get("replication_factor") == 1 else "NetworkTopologyStrategy"
