@@ -60,10 +60,10 @@ class ScyllaDB(VectorDB):
         log.info(f"Shard awareness status: {self.cluster.is_shard_aware()}")
 
         log.info(f"Creating keyspace: {keyspace}")
-        class_name = "SimpleStrategy" if self.db_config.get("replication_factor") == 1 else "NetworkTopologyStrategy"
+        class_name = "SimpleStrategy" if self.db_config.get("replication_factor") == 0 else "NetworkTopologyStrategy"
         self.session.execute(f"CREATE KEYSPACE IF NOT EXISTS {keyspace} "
                              f"WITH replication = {{'class': '{class_name}', 'replication_factor': '{self.db_config["replication_factor"]}'}} "
-                             f"AND tablets = {{'enabled': 'false'}}")
+                             f"AND tablets = {{'enabled': 'true'}}")
         self.session.set_keyspace(keyspace)
         
         if self.drop_old_table:
