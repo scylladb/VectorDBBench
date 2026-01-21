@@ -1,3 +1,4 @@
+from itertools import zip_longest
 import logging
 import time
 import environs
@@ -8,6 +9,8 @@ from cassandra import ConsistencyLevel
 from cassandra.cluster import Cluster
 from cassandra.query import BatchStatement, BatchType
 from cassandra.auth import PlainTextAuthProvider
+
+from vectordb_bench.backend.filter import Filter, FilterOp
 
 from ..api import VectorDB
 from .config import ScyllaDBIndexConfig
@@ -22,6 +25,12 @@ class ScyllaDBError(Exception):
 
 
 class ScyllaDB(VectorDB):
+    supported_filter_types: list[FilterOp] = [
+        FilterOp.NonFilter,
+        FilterOp.NumGE,
+        FilterOp.StrEqual,
+    ]
+
     """ScyllaDB client for vector database operations. (__init__ is called once per case, init is called in each process)"""
     def __init__(
         self,
@@ -29,7 +38,8 @@ class ScyllaDB(VectorDB):
         db_config: dict,
         db_case_config: ScyllaDBIndexConfig,
         collection_name: str = "vdb_bench_collection",
-        id_field: str = "id",
+        id_col_name: str = "id",
+        label_col_name: str = "filtering_label",
         vector_field: str = "vector",
         drop_old: bool = False,
         **kwargs,
@@ -38,7 +48,8 @@ class ScyllaDB(VectorDB):
         self.db_config = db_config
         self.index_config = db_case_config
         self.table_name = collection_name
-        self.id_field = id_field
+        self.id_col_name = id_col_name
+        self.label_col_name = label_col_name
         self.vector_field = vector_field
         self.drop_old_table = drop_old
         self.index_params = self.index_config.index_param()
@@ -83,8 +94,7 @@ class ScyllaDB(VectorDB):
             keyspace = self.db_config["keyspace"]
             self.cluster = Cluster(uri, auth_provider=self.auth_provider)
             self.session = self.cluster.connect(keyspace)
-            self.prepared_insert = self.session.prepare(f"INSERT INTO {self.table_name} ({self.id_field}, {self.vector_field}) VALUES (?, ?)")
-            self.prepared_lookup = self.session.prepare(f"SELECT {self.id_field} FROM {self.table_name} ORDER BY {self.vector_field} ANN OF ? LIMIT ?")
+            self.prepared_insert = self.session.prepare(f"INSERT INTO {self.table_name} ({self.id_col_name}, {self.vector_field}, {self.label_col_name}) VALUES (?, ?, ?)")
             yield
         finally:
             if self.cluster is not None:
@@ -96,8 +106,10 @@ class ScyllaDB(VectorDB):
         """Create table for vector storage"""
         create_table_cql = f"""
         CREATE TABLE IF NOT EXISTS {self.table_name} (
-            {self.id_field} int PRIMARY KEY,
-            {self.vector_field} vector<float, {self.dim}>
+            {self.id_col_name} int,
+            {self.label_col_name} text,
+            {self.vector_field} vector<float, {self.dim}>,
+            PRIMARY KEY ({self.id_col_name}, {self.label_col_name})
         ) WITH CDC = {{'enabled' : true}}
         """
         self.session.execute(create_table_cql)
@@ -110,17 +122,30 @@ class ScyllaDB(VectorDB):
         self,
         embeddings: list[list[float]],
         metadata: list[int],
+        labels_data: list[str] | None = None,
         **kwargs,
     ) -> (int, Exception | None):
         """Insert embeddings into ScyllaDB"""
         try:
             batch = BatchStatement(consistency_level=ConsistencyLevel.ONE, batch_type=BatchType.UNLOGGED)
-            for key, embedding in zip(metadata, embeddings, strict=False):
-                batch.add(self.prepared_insert, (key, embedding))
+            for key, embedding, label in zip_longest(metadata, embeddings, labels_data or [], fillvalue=None):
+                batch.add(self.prepared_insert, (key, embedding, label))
             self.session.execute(batch)
         except Exception as e:
             return 0, e
         return len(embeddings), None
+
+    def prepare_filter(self, filters: Filter):
+        if filters.type == FilterOp.NonFilter:
+            self.filter = ""  # No filter
+        elif filters.type == FilterOp.NumGE:
+            self.filter = f" WHERE {self.id_col_name} > {filters.int_value}"
+        elif filters.type == FilterOp.StrEqual:
+            self.filter = f" WHERE {self.label_col_name} = '{filters.label_value}'"
+        else:
+            msg = f"Not support Filter for ScyllaDB - {filters}"
+            raise ValueError(msg)
+        self.prepared_lookup = self.session.prepare(f"SELECT {self.id_col_name} FROM {self.table_name} {self.filter} ORDER BY {self.vector_field} ANN OF ? LIMIT ?")
 
     def search_embedding(
         self,
