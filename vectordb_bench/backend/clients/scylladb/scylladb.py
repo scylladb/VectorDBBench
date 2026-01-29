@@ -129,7 +129,7 @@ class ScyllaDB(VectorDB):
         try:
             batch = BatchStatement(consistency_level=ConsistencyLevel.ONE, batch_type=BatchType.UNLOGGED)
             for key, embedding, label in zip_longest(metadata, embeddings, labels_data or [], fillvalue=None):
-                batch.add(self.prepared_insert, (key, embedding, label))
+                batch.add(self.prepared_insert, (key, embedding, label or ""))
             self.session.execute(batch)
         except Exception as e:
             return 0, e
