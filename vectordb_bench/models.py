@@ -127,6 +127,10 @@ class CaseConfigParamType(Enum):
     optimize_after_write = "optimize_after_write"
     read_dur_after_write = "read_dur_after_write"
 
+    scylladb_quantization = "quantization"
+    scylladb_oversampling = "oversampling"
+    scylladb_rescoring = "rescoring"
+
 
 class CustomizedCase(BaseModel):
     pass
