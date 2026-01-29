@@ -1973,6 +1973,33 @@ CaseConfigParamInput_ef_search_ScyllaDB = CaseConfigInput(
     },
 )
 
+CaseConfigParamInput_quantization_ScyllaDB = CaseConfigInput(
+    label=CaseConfigParamType.scylladb_quantization,
+    inputHelp="The quantization method to use for compressing vectors in Vector Index",
+    inputType=InputType.Option,
+    inputConfig={
+        "options": ["f32", "f16", "bf16", "i8", "b1"],
+    },
+)
+
+CaseConfigParamInput_oversampling_ScyllaDB = CaseConfigInput(
+    label=CaseConfigParamType.scylladb_oversampling,
+    inputHelp="A multiplier for the candidate set size during the search phase",
+    inputType=InputType.Float,
+    inputConfig={
+        "min": 1.0,
+        "max": 100.0,
+        "value": 1.0,
+    },
+)
+
+CaseConfigParamInput_rescoring_ScyllaDB = CaseConfigInput(
+    label=CaseConfigParamType.scylladb_rescoring,
+    inputHelp="Flag enabling recalculation of similarity scores with full precision and re-ranking of the candidate set",
+    inputType=InputType.Bool,
+    inputConfig={"value": False},
+)
+
 LanceDBLoadConfig = [
     CaseConfigParamInput_IndexType_LanceDB,
     CaseConfigParamInput_num_partitions_LanceDB,
@@ -2019,7 +2046,10 @@ ScyllaDBLoadingConfig = [
 ScyllaDBPerformanceConfig = [
     CaseConfigParamInput_ef_construction_ScyllaDB,
     CaseConfigParamInput_m_ScyllaDB,
-    CaseConfigParamInput_ef_search_ScyllaDB
+    CaseConfigParamInput_ef_search_ScyllaDB,
+    CaseConfigParamInput_quantization_ScyllaDB,
+    CaseConfigParamInput_oversampling_ScyllaDB,
+    CaseConfigParamInput_rescoring_ScyllaDB
 ]
 
 # Map DB to config
