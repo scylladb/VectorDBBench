@@ -41,15 +41,19 @@ class ScyllaDBIndexConfig(BaseModel, DBCaseConfig):
         return "EUCLIDEAN"  # Default to L2 similarity
 
     def index_param(self) -> dict:
-        return {
+        params = {
                     "similarity_function": self.get_similiarity_function_name(),
                     "maximum_node_connections" : self.m,
                     "construction_beam_width": self.ef_construction,
                     "search_beam_width": self.ef_search,
-                    "quantization": self.quantization.value,
-                    "rescoring": self.rescoring,
-                    "oversampling": self.oversampling,
                     }
+        if self.quantization != Quantization.F32:
+            params["quantization"] = self.quantization.value
+        if self.rescoring != False:
+            params["rescoring"] = self.rescoring
+        if self.oversampling != 1.0:
+            params["oversampling"] = self.oversampling
+        return params
 
     def search_param(self) -> dict:
         return {}
