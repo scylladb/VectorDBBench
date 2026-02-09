@@ -31,6 +31,18 @@ class ScyllaDB(VectorDB):
         FilterOp.StrEqual,
     ]
 
+    def _get_driver_provider(self):
+        driver_provider = ""
+        try:
+            # This class only exists in the Scylla-optimized driver not in 
+            # the Cassandra driver, so we can use it to determine which driver is being used.
+            # Using Tablet class as vector search in Scylla depends on tablets.
+            from cassandra.tablets import Tablet
+            driver_provider = "ScyllaDB"
+        except ImportError:
+            driver_provider = "Cassandra"
+        return driver_provider
+
     """ScyllaDB client for vector database operations. (__init__ is called once per case, init is called in each process)"""
     def __init__(
         self,
@@ -61,7 +73,7 @@ class ScyllaDB(VectorDB):
         elif self.username or self.password:
             log.warning("Only one of username or password is set. Authentication may fail.")
 
-        log.info(f"Using {cassandra.__version__} version of Cassandra driver")
+        log.info(f"Using {cassandra.__version__} version of {self._get_driver_provider()} driver.")
         log.info(f"index params: {self.index_params}")
         uri = self.db_config["cluster_uris"]
         keyspace = self.db_config["keyspace"]
