@@ -54,6 +54,7 @@ class ScyllaDB(VectorDB):
         label_col_name: str = "filtering_label",
         vector_field: str = "vector",
         drop_old: bool = False,
+        with_scalar_labels: bool = False,
         **kwargs,
     ):
         self.dim = dim
@@ -64,6 +65,7 @@ class ScyllaDB(VectorDB):
         self.label_col_name = label_col_name
         self.vector_field = vector_field
         self.drop_old_table = drop_old
+        self.with_scalar_labels = with_scalar_labels
         self.index_params = self.index_config.index_param()
         self.username = env("SCYLLADB_USERNAME", default=None)
         self.password = env("SCYLLADB_PASSWORD", default=None)
@@ -106,7 +108,10 @@ class ScyllaDB(VectorDB):
             keyspace = self.db_config["keyspace"]
             self.cluster = Cluster(uri, auth_provider=self.auth_provider)
             self.session = self.cluster.connect(keyspace)
-            self.prepared_insert = self.session.prepare(f"INSERT INTO {self.table_name} ({self.id_col_name}, {self.vector_field}, {self.label_col_name}) VALUES (?, ?, ?)")
+            if self.with_scalar_labels:
+                self.prepared_insert = self.session.prepare(f"INSERT INTO {self.table_name} ({self.id_col_name}, {self.vector_field}, {self.label_col_name}) VALUES (?, ?, ?)")
+            else:
+                self.prepared_insert = self.session.prepare(f"INSERT INTO {self.table_name} ({self.id_col_name}, {self.vector_field}) VALUES (?, ?)")
             yield
         finally:
             if self.cluster is not None:
@@ -116,14 +121,23 @@ class ScyllaDB(VectorDB):
 
     def _create_table(self):
         """Create table for vector storage"""
-        create_table_cql = f"""
-        CREATE TABLE IF NOT EXISTS {self.table_name} (
-            {self.id_col_name} int,
-            {self.label_col_name} text,
-            {self.vector_field} vector<float, {self.dim}>,
-            PRIMARY KEY ({self.id_col_name}, {self.label_col_name})
-        ) WITH CDC = {{'enabled' : true}}
-        """
+        if self.with_scalar_labels:
+            create_table_cql = f"""
+            CREATE TABLE IF NOT EXISTS {self.table_name} (
+                {self.id_col_name} int,
+                {self.label_col_name} text,
+                {self.vector_field} vector<float, {self.dim}>,
+                PRIMARY KEY ({self.id_col_name}, {self.label_col_name})
+            ) WITH CDC = {{'enabled' : true}}
+            """
+        else:
+            create_table_cql = f"""
+            CREATE TABLE IF NOT EXISTS {self.table_name} (
+                {self.id_col_name} int,
+                {self.vector_field} vector<float, {self.dim}>,
+                PRIMARY KEY ({self.id_col_name})
+            ) WITH CDC = {{'enabled' : true}}
+            """
         self.session.execute(create_table_cql)
         log.info(f"Created table {self.table_name} if didn't exist")
 
@@ -140,8 +154,12 @@ class ScyllaDB(VectorDB):
         """Insert embeddings into ScyllaDB"""
         try:
             batch = BatchStatement(consistency_level=ConsistencyLevel.ONE, batch_type=BatchType.UNLOGGED)
-            for key, embedding, label in zip_longest(metadata, embeddings, labels_data or [], fillvalue=None):
-                batch.add(self.prepared_insert, (key, embedding, label or ""))
+            if self.with_scalar_labels:
+                for key, embedding, label in zip_longest(metadata, embeddings, labels_data or [], fillvalue=None):
+                    batch.add(self.prepared_insert, (key, embedding, label or ""))
+            else:
+                for key, embedding in zip(metadata, embeddings):
+                    batch.add(self.prepared_insert, (key, embedding))
             self.session.execute(batch)
         except Exception as e:
             return 0, e
