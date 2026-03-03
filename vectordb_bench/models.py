@@ -131,6 +131,7 @@ class CaseConfigParamType(Enum):
     scylladb_oversampling = "oversampling"
     scylladb_rescoring = "rescoring"
     scylladb_index_scope = "index_scope"
+    scylladb_create_index_after_upload = "create_index_after_upload"
 
 
 class CustomizedCase(BaseModel):

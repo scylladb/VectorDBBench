@@ -114,7 +114,8 @@ class ScyllaDB(VectorDB):
                 log.info("%s dropping old table: %s", self.name, self.table_name)
                 session.execute(f"DROP TABLE IF EXISTS {self.table_name}")
                 self._create_table(session)
-                self._create_index(session)
+                if not self.case_config.create_index_after_upload:
+                    self._create_index(session)
 
     # -- authentication & driver detection -----------------------------------
 
@@ -460,5 +461,8 @@ class ScyllaDB(VectorDB):
             time.sleep(poll_interval)
 
     def optimize(self, data_size: int | None = None) -> None:
-        """Wait for index to be fully built before search benchmarks."""
+        """Create index (if deferred) and wait for it to be fully built before search benchmarks."""
+        if self.case_config.create_index_after_upload:
+            session = self._ensure_session()
+            self._create_index(session)
         self._wait_for_index_build()
