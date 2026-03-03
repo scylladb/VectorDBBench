@@ -441,15 +441,16 @@ class ScyllaDB(VectorDB):
         log.info("%s waiting for index build to complete …", self.name)
 
         sample_vector = [0.0] * self.dim
-        probe_cql = (
-            f"SELECT * FROM {self.table_name} "
-            f"ORDER BY {self.vector_field} ANN OF %s LIMIT 1"
+        sample_vector[0] = 1.0  # Avoid all-zero vector which may be rejected by some metrics
+        probe_stmt = session.prepare(
+            f"SELECT {self.id_col_name} FROM {self.table_name} "
+            f"ORDER BY {self.vector_field} ANN OF ? LIMIT 1"
         )
 
         deadline = time.monotonic() + timeout
         while True:
             try:
-                session.execute(probe_cql, (sample_vector,))
+                session.execute(probe_stmt, (sample_vector,))
             except Exception as e:
                 if time.monotonic() >= deadline:
                     msg = f"{self.name}: index not ready after {timeout}s"
