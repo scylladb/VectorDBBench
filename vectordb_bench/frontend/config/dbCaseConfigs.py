@@ -2000,6 +2000,13 @@ CaseConfigParamInput_rescoring_ScyllaDB = CaseConfigInput(
     inputConfig={"value": False},
 )
 
+CaseConfigParamInput_index_scope_ScyllaDB = CaseConfigInput(
+    label=CaseConfigParamType.scylladb_index_scope,
+    inputHelp="Use local (partition-level) or global secondary index for label-filter search",
+    inputType=InputType.Option,
+    inputConfig={"options": ["local", "global"]},
+)
+
 LanceDBLoadConfig = [
     CaseConfigParamInput_IndexType_LanceDB,
     CaseConfigParamInput_num_partitions_LanceDB,
@@ -2049,7 +2056,8 @@ ScyllaDBPerformanceConfig = [
     CaseConfigParamInput_ef_search_ScyllaDB,
     CaseConfigParamInput_quantization_ScyllaDB,
     CaseConfigParamInput_oversampling_ScyllaDB,
-    CaseConfigParamInput_rescoring_ScyllaDB
+    CaseConfigParamInput_rescoring_ScyllaDB,
+    CaseConfigParamInput_index_scope_ScyllaDB,
 ]
 
 # Map DB to config

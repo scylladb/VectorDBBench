@@ -17,10 +17,10 @@ from cassandra.query import BatchStatement, BatchType, PreparedStatement
 from vectordb_bench.backend.filter import Filter, FilterOp
 
 from ..api import VectorDB
+from .config import ScyllaDBIndexScope
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Sequence
-
     from .config import ScyllaDBIndexConfig
 
 __all__ = ["ScyllaDB"]
@@ -202,6 +202,14 @@ class ScyllaDB(VectorDB):
 
     # -- schema management ---------------------------------------------------
 
+    @property
+    def _use_local_index(self) -> bool:
+        """Whether to use a local (partition-level) secondary index."""
+        return (
+            self.with_scalar_labels
+            and self.case_config.index_scope == ScyllaDBIndexScope.LOCAL
+        )
+
     def _create_keyspace(self, session: Session, keyspace: str) -> None:
         """Create keyspace if it does not exist."""
         log.info("%s creating keyspace: %s", self.name, keyspace)
@@ -217,11 +225,12 @@ class ScyllaDB(VectorDB):
 
     def _create_table(self, session: Session) -> None:
         """Create table for vector storage."""
-        pk = (
-            f"PRIMARY KEY ({self.id_col_name}, {self.label_col_name})"
-            if self.with_scalar_labels
-            else f"PRIMARY KEY ({self.id_col_name})"
-        )
+        if self._use_local_index:
+            pk = f"PRIMARY KEY ({self.label_col_name}, {self.id_col_name})"
+        elif self.with_scalar_labels:
+            pk = f"PRIMARY KEY ({self.id_col_name}, {self.label_col_name})"
+        else:
+            pk = f"PRIMARY KEY ({self.id_col_name})"
         label_col = (
             f"{self.label_col_name} text,"
             if self.with_scalar_labels
@@ -240,9 +249,13 @@ class ScyllaDB(VectorDB):
 
     def _create_index(self, session: Session) -> None:
         """Create vector search index on the table."""
+        if self._use_local_index:
+            target = f"(({self.label_col_name}), {self.vector_field})"
+        else:
+            target = f"({self.vector_field})"
         create_index_cql = (
             f"CREATE CUSTOM INDEX IF NOT EXISTS ON {self.table_name} "
-            f"({self.vector_field}) USING 'vector_index' "
+            f"{target} USING 'vector_index' "
             f"WITH OPTIONS = {self.case_config.index_param()}"
         )
         session.execute(create_index_cql)
@@ -367,7 +380,7 @@ class ScyllaDB(VectorDB):
             self._filter_params = (filters.int_value,)
         elif filters.type == FilterOp.StrEqual:
             where = f" WHERE {self.label_col_name} = ?"
-            allow_filtering = " ALLOW FILTERING"
+            allow_filtering = "" if self._use_local_index else " ALLOW FILTERING"
             self._filter_params = (filters.label_value,)
         else:
             msg = f"Unsupported filter for {self.name}: {filters}"
