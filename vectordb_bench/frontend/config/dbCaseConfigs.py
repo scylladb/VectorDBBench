@@ -2007,6 +2007,13 @@ CaseConfigParamInput_index_scope_ScyllaDB = CaseConfigInput(
     inputConfig={"options": ["local", "global"]},
 )
 
+CaseConfigParamInput_create_index_after_upload_ScyllaDB = CaseConfigInput(
+    label=CaseConfigParamType.scylladb_create_index_after_upload,
+    inputHelp="Create the vector index after data is uploaded (True) or before upload (False)",
+    inputType=InputType.Bool,
+    inputConfig={"value": True},
+)
+
 LanceDBLoadConfig = [
     CaseConfigParamInput_IndexType_LanceDB,
     CaseConfigParamInput_num_partitions_LanceDB,
@@ -2048,6 +2055,7 @@ AWSOpenSearchPerformanceConfig = [
 ScyllaDBLoadingConfig = [
     CaseConfigParamInput_ef_construction_ScyllaDB,
     CaseConfigParamInput_m_ScyllaDB,
+    CaseConfigParamInput_create_index_after_upload_ScyllaDB,
 ]
 
 ScyllaDBPerformanceConfig = [
@@ -2058,6 +2066,7 @@ ScyllaDBPerformanceConfig = [
     CaseConfigParamInput_oversampling_ScyllaDB,
     CaseConfigParamInput_rescoring_ScyllaDB,
     CaseConfigParamInput_index_scope_ScyllaDB,
+    CaseConfigParamInput_create_index_after_upload_ScyllaDB,
 ]
 
 # Map DB to config

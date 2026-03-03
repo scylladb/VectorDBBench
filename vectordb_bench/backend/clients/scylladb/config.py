@@ -1,4 +1,3 @@
-
 from enum import Enum
 
 from pydantic import BaseModel
@@ -39,6 +38,7 @@ class ScyllaDBIndexConfig(BaseModel, DBCaseConfig):
     rescoring: bool | None = False  # Whether to rescore search result with original vectors
     oversampling: float | None = 1.0  # Search for oversampling * LIMIT results to improve recall
     index_scope: ScyllaDBIndexScope = ScyllaDBIndexScope.LOCAL  # Local vs global secondary index
+    create_index_after_upload: bool = True  # Whether to create the index after data is uploaded
 
     def get_similarity_function_name(self) -> str:
         if self.metric_type == MetricType.COSINE:
