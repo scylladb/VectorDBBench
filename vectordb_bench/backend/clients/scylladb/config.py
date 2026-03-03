@@ -5,6 +5,11 @@ from pydantic import BaseModel
 
 from ..api import DBCaseConfig, DBConfig, IndexType, MetricType
 
+class ScyllaDBIndexScope(str, Enum):
+    LOCAL = "local"
+    GLOBAL = "global"
+
+
 class Quantization(str, Enum):
     F32 = "f32"
     F16 = "f16"
@@ -33,6 +38,7 @@ class ScyllaDBIndexConfig(BaseModel, DBCaseConfig):
     quantization: Quantization | None = Quantization.F32  # Quantization type
     rescoring: bool | None = False  # Whether to rescore search result with original vectors
     oversampling: float | None = 1.0  # Search for oversampling * LIMIT results to improve recall
+    index_scope: ScyllaDBIndexScope = ScyllaDBIndexScope.LOCAL  # Local vs global secondary index
 
     def get_similarity_function_name(self) -> str:
         if self.metric_type == MetricType.COSINE:

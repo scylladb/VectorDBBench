@@ -130,6 +130,7 @@ class CaseConfigParamType(Enum):
     scylladb_quantization = "quantization"
     scylladb_oversampling = "oversampling"
     scylladb_rescoring = "rescoring"
+    scylladb_index_scope = "index_scope"
 
 
 class CustomizedCase(BaseModel):
