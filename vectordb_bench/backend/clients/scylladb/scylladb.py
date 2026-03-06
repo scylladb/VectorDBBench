@@ -145,6 +145,17 @@ class ScyllaDB(VectorDB):
 
         _run(_setup())
 
+    # -- environment helpers --------------------------------------------------
+
+    @staticmethod
+    def _load_env(env_path: str = ".env") -> "environs.Env":
+        """Load environment variables from *env_path* and return the Env instance."""
+        import environs  # optional dependency -- imported lazily
+
+        env = environs.Env()
+        env.read_env(path=env_path, recurse=False)
+        return env
+
     # -- authentication helpers -----------------------------------------------
 
     @staticmethod
@@ -153,10 +164,7 @@ class ScyllaDB(VectorDB):
 
         Returns ``(username, password)``; either or both may be ``None``.
         """
-        import environs  # optional dependency -- imported lazily
-
-        env = environs.Env()
-        env.read_env(path=env_path, recurse=False)
+        env = ScyllaDB._load_env(env_path)
         username: str | None = env("SCYLLADB_USERNAME", default=None)
         password: str | None = env("SCYLLADB_PASSWORD", default=None)
 
@@ -166,6 +174,16 @@ class ScyllaDB(VectorDB):
                 "authentication may fail."
             )
         return username, password
+
+    @staticmethod
+    def _read_env_uri(env_path: str = ".env") -> str | None:
+        """Read ScyllaDB URI from environment.
+
+        Returns the value of ``SCYLLADB_URI`` if set, otherwise ``None``.
+        The value may be a single host or comma-separated contact points.
+        """
+        env = ScyllaDB._load_env(env_path)
+        return env("SCYLLADB_URI", default=None)
 
     # -- connection helpers ---------------------------------------------------
 
@@ -191,7 +209,11 @@ class ScyllaDB(VectorDB):
         If *keyspace* is ``None`` the configured keyspace is created (if
         needed) and selected on the session automatically.
         """
-        uri = self.db_config["cluster_uris"]
+        env_uri = self._read_env_uri()
+        if env_uri is not None:
+            uri = env_uri.split(",")
+        else:
+            uri = self.db_config["cluster_uris"]
         ks = keyspace or self.db_config["keyspace"]
 
         builder = self._build_session_builder(uri)
