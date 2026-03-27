@@ -472,8 +472,11 @@ class ScyllaDB(VectorDB):
         the initial table setup.  The ``IF NOT EXISTS`` clause makes
         this safe to call multiple times.
         """
+        if getattr(self, "_index_ensured", False):
+            return
         session = self._ensure_session()
         self._run_async(self._create_index(session))
+        self._index_ensured = True
 
     def prepare_filter(self, filters: Filter) -> None:
         """Pre-prepare filter conditions to reduce redundancy during search.
