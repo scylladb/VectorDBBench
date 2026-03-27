@@ -2014,6 +2014,18 @@ CaseConfigParamInput_create_index_after_upload_ScyllaDB = CaseConfigInput(
     inputConfig={"value": True},
 )
 
+CaseConfigParamInput_dim_override_ScyllaDB = CaseConfigInput(
+    label=CaseConfigParamType.scylladb_dim_override,
+    displayLabel="dim_override",
+    inputHelp="Override vector dimensions (0 = use dataset default). Vectors are extended by repeating coordinates.",
+    inputType=InputType.Number,
+    inputConfig={
+        "min": 0,
+        "max": 65536,
+        "value": 0,
+    },
+)
+
 LanceDBLoadConfig = [
     CaseConfigParamInput_IndexType_LanceDB,
     CaseConfigParamInput_num_partitions_LanceDB,
@@ -2056,6 +2068,7 @@ ScyllaDBLoadingConfig = [
     CaseConfigParamInput_ef_construction_ScyllaDB,
     CaseConfigParamInput_m_ScyllaDB,
     CaseConfigParamInput_create_index_after_upload_ScyllaDB,
+    CaseConfigParamInput_dim_override_ScyllaDB,
 ]
 
 ScyllaDBPerformanceConfig = [
@@ -2067,6 +2080,7 @@ ScyllaDBPerformanceConfig = [
     CaseConfigParamInput_rescoring_ScyllaDB,
     CaseConfigParamInput_index_scope_ScyllaDB,
     CaseConfigParamInput_create_index_after_upload_ScyllaDB,
+    CaseConfigParamInput_dim_override_ScyllaDB,
 ]
 
 # Map DB to config

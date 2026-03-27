@@ -103,7 +103,13 @@ class ScyllaDB(VectorDB):
         **kwargs,
     ) -> None:
         self.name = "ScyllaDB"
-        self.dim = dim
+        self._original_dim = dim
+        # Apply dimension override if configured
+        override = getattr(db_case_config, "dim_override", None)
+        if override and override > 0:
+            self.dim = override
+        else:
+            self.dim = dim
         self.db_config = db_config
         self.case_config = db_case_config
         self.table_name = collection_name
@@ -394,6 +400,17 @@ class ScyllaDB(VectorDB):
         """Whether this database needs to normalize dataset to support COSINE."""
         return True
 
+    def _extend_vector(self, vec: list[float]) -> list[float]:
+        """Extend *vec* to ``self.dim`` dimensions by repeating coordinates."""
+        if self.dim <= len(vec):
+            return vec
+        original_len = len(vec)
+        extended = vec * (self.dim // original_len)
+        remainder = self.dim - len(extended)
+        if remainder:
+            extended.extend(vec[:remainder])
+        return extended
+
     def insert_embeddings(
         self,
         embeddings: Sequence[list[float]],
@@ -414,6 +431,9 @@ class ScyllaDB(VectorDB):
         Returns:
             Tuple of (inserted_count, error_or_None).
         """
+        if self.dim != self._original_dim:
+            embeddings = [self._extend_vector(e) for e in embeddings]
+
         session = self._ensure_session()
         assert self.prepared_insert is not None, "prepared_insert not initialized"
 
@@ -517,6 +537,9 @@ class ScyllaDB(VectorDB):
                 "call prepare_filter() before searching"
             )
             raise RuntimeError(msg)
+
+        if self.dim != self._original_dim:
+            query = self._extend_vector(query)
 
         result = self._run_async(
             session.execute(
