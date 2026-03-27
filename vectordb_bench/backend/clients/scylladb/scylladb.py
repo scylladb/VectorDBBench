@@ -195,19 +195,17 @@ class ScyllaDB(VectorDB):
 
     def _build_session_builder(self, contact_points: list[str]) -> SessionBuilder:
         """Create a :class:`SessionBuilder` for the configured cluster."""
-        # The python-rs driver's SessionBuilder does not support auth yet.
-        # Credentials are read but only logged as a warning for now.
         username, password = self._read_credentials()
-        if username and password:
-            log.warning(
-                "%s: python-rs driver does not yet support authentication; "
-                "credentials are ignored.",
-                self.name,
-            )
         # Default to Consistency.One for all statements – sufficient for
         # benchmarking and avoids the latency of LocalQuorum.
         profile = ExecutionProfile(consistency=Consistency.One)
-        return SessionBuilder(contact_points, _DEFAULT_PORT, execution_profile=profile)
+        return SessionBuilder(
+            contact_points,
+            _DEFAULT_PORT,
+            execution_profile=profile,
+            username=username,
+            password=password,
+        )
 
     async def _connect(self, keyspace: str | None = None) -> Session:
         """Open a connection returning the async Session.
