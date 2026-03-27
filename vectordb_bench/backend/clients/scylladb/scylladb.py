@@ -445,12 +445,25 @@ class ScyllaDB(VectorDB):
 
     # -- search & filtering --------------------------------------------------
 
+    def _ensure_index(self) -> None:
+        """Create the vector index if it does not already exist.
+
+        Called lazily from :meth:`prepare_filter` so that streaming
+        (read-while-write) tests can issue ANN queries even when
+        ``create_index_after_upload`` has deferred index creation past
+        the initial table setup.  The ``IF NOT EXISTS`` clause makes
+        this safe to call multiple times.
+        """
+        session = self._ensure_session()
+        self._run_async(self._create_index(session))
+
     def prepare_filter(self, filters: Filter) -> None:
         """Pre-prepare filter conditions to reduce redundancy during search.
 
         Filter values are bound via CQL prepared-statement parameters
         rather than interpolated into the query string.
         """
+        self._ensure_index()
         session = self._ensure_session()
 
         if filters.type == FilterOp.NonFilter:
