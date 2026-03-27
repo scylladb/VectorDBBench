@@ -39,6 +39,7 @@ class ScyllaDBIndexConfig(BaseModel, DBCaseConfig):
     oversampling: float | None = 1.0  # Search for oversampling * LIMIT results to improve recall
     index_scope: ScyllaDBIndexScope = ScyllaDBIndexScope.LOCAL  # Local vs global secondary index
     create_index_after_upload: bool = True  # Whether to create the index after data is uploaded
+    dim_override: int | None = None  # Override the number of vector dimensions (0 or None = use dataset default)
 
     def get_similarity_function_name(self) -> str:
         if self.metric_type == MetricType.COSINE:
