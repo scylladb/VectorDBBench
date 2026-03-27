@@ -545,7 +545,10 @@ class ScyllaDB(VectorDB):
                 list(self._filter_params) + [query, k],
             )
         )
-        return [row[self.id_col_name] for row in result.iter_rows()] if result else []
+        if not result:
+            return []
+        rows = result.iter_current_page() if hasattr(result, "iter_current_page") else result.iter_rows()
+        return [row[self.id_col_name] for row in rows]
 
     # -- optimisation --------------------------------------------------------
 
