@@ -1,0 +1,117 @@
+Dimensions = 2048
+N = 10M
+
+
+What MongoDB uses:
+* 3 x M20 data nodes (4 GB RAM, 2 CPUs, 20 GB storage)
+* 2 x S50 search nodes (32 GB RAM, 4 CPUs)
+* 15.3M vectors, 2048 D, scalar q.
+
+What I used:
+* 3 x i8g.large Scylla nodes (16 GB RAM, 2 CPUs, 468 GB storage) - there is nothing smaller not counting micro
+* 2 x r7g.xlarge Vector Store nodes (32 GB RAM, 4 CPUs)
+* 10M vectors, 2048 D, scalar q. - There is no chance to run the 100M scenario as Eyal suggested; it will not fit the RAM even with scalar quantization. However, this 50% reduction should not impact us much - it is less than 1 level in HNSW graph
+
+Benchmark:
+* VectorDBBench patched to support an increased number of dimensions
+* r7i.16xlarge (64 CPUs) to ensure it is not the bottleneck
+* Run against Scylla Cloud with ScyllaDB 2026.1 + VS 1.5.0 deployed in the same region
+
+
+= Index definition (rescoring scenario) =
+
+CREATE CUSTOM INDEX vdb_bench_collection_vector_idx ON vdb_bench.vdb_bench_collection (vector) USING 'vector_index' WITH OPTIONS = {'search_beam_width': '192', 'index_version': 'b9604b81-2c69-11f1-a5a2-de81b41209c4', 'construction_beam_width': '384', 'quantization': 'i8', 'similarity_function': 'COSINE', 'oversampling': '3.0', 'maximum_node_connections': '64', 'rescoring': 'True'};
+
+
+== Experiment for k=100, Recall=96% ==
+
+2026-03-31 08:10:37,301 | INFO: End search in concurrency 150: dur=32.052223433041945s, total_count=8124, qps=253.4614 (mp_runner.py:136) (552243)
+2026-03-31 08:10:38,523 | INFO: Update largest qps with concurrency 150: current max_qps=253.4614 (mp_runner.py:140) (552243)
+2026-03-31 08:10:38.756 WARNING streamlit.runtime.scriptrunner_utils.script_run_context: Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-31 08:10:39,447 | INFO: SpawnProcess-18:628 start search the entire test_data to get recall and latency (serial_runner.py:245) (637797)
+2026-03-31 08:10:39,492 | INFO: ScyllaDB created index on: vdb_bench_collection (scylladb.py:301) (637797)
+2026-03-31 08:12:03,679 | INFO: SpawnProcess-18:628 search entire test_data: cost=83.4755s, queries=3106, avg_recall=0.9593, avg_ndcg=0.9614, avg_latency=0.0269, p99=0.0335 (serial_runner.py:284) (637797)
+2026-03-31 08:12:03,845 | INFO: Performance case got result: Metric(max_load_count=0, insert_duration=0.0, optimize_duration=0.0, load_duration=0.0, qps=253.4614, serial_latency_p99=np.float64(0.0335), recall=np.float64(0.9593), ndcg=np.float64(0.9614), conc_num_list=[1, 5, 10, 20, 30, 40, 60, 80, 100, 120, 150], conc_qps_list=[35.6382, 110.7387, 156.017, 200.1139, 215.9614, 227.8721, 240.8956, 248.7864, 251.9803, 248.5434, 253.4614], conc_latency_p99_list=[np.float64(0.03324248119606636), np.float64(0.07710296478646345), np.float64(0.11433199197868817), np.float64(0.17781017776345817), np.float64(0.2384650202060585), np.float64(0.2986506551969795), np.float64(0.40842746614653186), np.float64(0.5023022844688967), np.float64(0.6378441803454192), np.float64(0.7740865960333039), np.float64(0.8849189117882625)], conc_latency_avg_list=[np.float64(0.02801219750416181), np.float64(0.04502785945975741), np.float64(0.06389601015677628), np.float64(0.09941896903179831), np.float64(0.13665837698586103), np.float64(0.17225179908921182), np.float64(0.24172917272932967), np.float64(0.30829841090988713), np.float64(0.3818373175864184), np.float64(0.45915531131268195), np.float64(0.5570612069469578)], st_ideal_insert_duration=0, st_search_stage_list=[], st_search_time_list=[], st_max_qps_list_list=[], st_recall_list=[], st_ndcg_list=[], st_serial_latency_p99_list=[], st_conc_failed_rate_list=[]) (task_runner.py:200) (552243)
+2026-03-31 08:12:03,845 | INFO: [1/1] finish case: {'label': <CaseLabel.Performance: 2>, 'name': 'Search Performance Test (10M Dataset, 1024 Dim)', 'dataset': {'data': {'name': 'Bioasq', 'size': 10000000, 'dim': 1024, 'metric_type': <MetricType.COSINE: 'COSINE'>}}, 'db': 'ScyllaDB'}, result=Metric(max_load_count=0, insert_duration=0.0, optimize_duration=0.0, load_duration=0.0, qps=253.4614, serial_latency_p99=np.float64(0.0335), recall=np.float64(0.9593), ndcg=np.float64(0.9614), conc_num_list=[1, 5, 10, 20, 30, 40, 60, 80, 100, 120, 150], conc_qps_list=[35.6382, 110.7387, 156.017, 200.1139, 215.9614, 227.8721, 240.8956, 248.7864, 251.9803, 248.5434, 253.4614], conc_latency_p99_list=[np.float64(0.03324248119606636), np.float64(0.07710296478646345), np.float64(0.11433199197868817), np.float64(0.17781017776345817), np.float64(0.2384650202060585), np.float64(0.2986506551969795), np.float64(0.40842746614653186), np.float64(0.5023022844688967), np.float64(0.6378441803454192), np.float64(0.7740865960333039), np.float64(0.8849189117882625)], conc_latency_avg_list=[np.float64(0.02801219750416181), np.float64(0.04502785945975741), np.float64(0.06389601015677628), np.float64(0.09941896903179831), np.float64(0.13665837698586103), np.float64(0.17225179908921182), np.float64(0.24172917272932967), np.float64(0.30829841090988713), np.float64(0.3818373175864184), np.float64(0.45915531131268195), np.float64(0.5570612069469578)], st_ideal_insert_duration=0, st_search_stage_list=[], st_search_time_list=[], st_max_qps_list_list=[], st_recall_list=[], st_ndcg_list=[], st_serial_latency_p99_list=[], st_conc_failed_rate_list=[]), label=ResultLabel.NORMAL (interface.py:179) (552243)
+2026-03-31 08:12:03,846 | INFO |Task summary: run_id=bd37c, task_label=2026033108 (models.py:409)
+2026-03-31 08:12:03,846 | INFO |DB       | db_label case                                            label      | load_dur    qps         latency(p99)    recall        max_load_count | label (models.py:409)
+2026-03-31 08:12:03,846 | INFO |-------- | -------- ----------------------------------------------- ---------- | ----------- ----------- --------------- ------------- -------------- | ----- (models.py:409)
+2026-03-31 08:12:03,846 | INFO |ScyllaDB |          Search Performance Test (10M Dataset, 1024 Dim) 2026033108 | 0.0         253.4614    0.0335          0.9593        0              | :)    (models.py:409)
+2026-03-31 08:12:03,846 | INFO: write results to disk /home/ubuntu/VectorDBBench/vectordb_bench/results/ScyllaDB/result_20260331_2026033108_scylladb.json (models.py:275) (552243)
+2026-03-31 08:12:03,846 | INFO: Success to finish task: label=2026033108, run_id=bd37c8f4758849438b6112ed436a3cbc (interface.py:218) (552243)
+
+== Experiment for k=10, Recall=96.2% ==
+
+MongoDB results: 
+116 QPS, 320 ms latency, recall=98.3% for concurrency=100
+103 QPS, 90 ms latency, recall=98.5% for concurrency=10
+36 QPS, 27 ms latency, recall=99.7% for concurrency=1
+
+
+ScyllaDB results:
+
+2026-03-31 08:24:18,271 | INFO: End search in concurrency 150: dur=31.433925428020302s, total_count=42157, qps=1341.1306 (mp_runner.py:136) (637954)
+2026-03-31 08:24:19.720 WARNING streamlit.runtime.scriptrunner_utils.script_run_context: Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-31 08:24:20,391 | INFO: SpawnProcess-19:628 start search the entire test_data to get recall and latency (serial_runner.py:245) (723610)
+2026-03-31 08:24:20,434 | INFO: ScyllaDB created index on: vdb_bench_collection (scylladb.py:301) (723610)
+2026-03-31 08:24:54,151 | INFO: SpawnProcess-19:628 search entire test_data: cost=33.5124s, queries=3106, avg_recall=0.9597, avg_ndcg=0.9581, avg_latency=0.0108, p99=0.0147 (serial_runner.py:284) (723610)
+2026-03-31 08:24:54,330 | INFO: Performance case got result: Metric(max_load_count=0, insert_duration=0.0, optimize_duration=0.0, load_duration=0.0, qps=1365.1149, serial_latency_p99=np.float64(0.0147), recall=np.float64(0.9597), ndcg=np.float64(0.9581), conc_num_list=[1, 5, 10, 20, 30, 40, 60, 80, 100, 120, 150], conc_qps_list=[92.8706, 439.7221, 795.5989, 1204.6843, 1313.8298, 1349.7848, 1286.3782, 1357.2506, 1356.1123, 1365.1149, 1341.1306], conc_latency_p99_list=[np.float64(0.014408298698253929), np.float64(0.01555885460693389), np.float64(0.01787587007507682), np.float64(0.02656279972987249), np.float64(0.03875785844284109), np.float64(0.052171557088731786), np.float64(0.09952588747546542), np.float64(0.10795983904215972), np.float64(0.1389286372397327), np.float64(0.15894862890767397), np.float64(0.21487013447098435)], conc_latency_avg_list=[np.float64(0.010748498065643071), np.float64(0.011345051748109757), np.float64(0.012534768663302312), np.float64(0.01652655669718426), np.float64(0.022698258072245563), np.float64(0.029427221220718277), np.float64(0.04598988474439459), np.float64(0.057725249350751934), np.float64(0.07183680439119226), np.float64(0.08563514208636686), np.float64(0.10695830524236832)], st_ideal_insert_duration=0, st_search_stage_list=[], st_search_time_list=[], st_max_qps_list_list=[], st_recall_list=[], st_ndcg_list=[], st_serial_latency_p99_list=[], st_conc_failed_rate_list=[]) (task_runner.py:200) (637954)
+2026-03-31 08:24:54,330 | INFO: [1/1] finish case: {'label': <CaseLabel.Performance: 2>, 'name': 'Search Performance Test (10M Dataset, 1024 Dim)', 'dataset': {'data': {'name': 'Bioasq', 'size': 10000000, 'dim': 1024, 'metric_type': <MetricType.COSINE: 'COSINE'>}}, 'db': 'ScyllaDB'}, result=Metric(max_load_count=0, insert_duration=0.0, optimize_duration=0.0, load_duration=0.0, qps=1365.1149, serial_latency_p99=np.float64(0.0147), recall=np.float64(0.9597), ndcg=np.float64(0.9581), conc_num_list=[1, 5, 10, 20, 30, 40, 60, 80, 100, 120, 150], conc_qps_list=[92.8706, 439.7221, 795.5989, 1204.6843, 1313.8298, 1349.7848, 1286.3782, 1357.2506, 1356.1123, 1365.1149, 1341.1306], conc_latency_p99_list=[np.float64(0.014408298698253929), np.float64(0.01555885460693389), np.float64(0.01787587007507682), np.float64(0.02656279972987249), np.float64(0.03875785844284109), np.float64(0.052171557088731786), np.float64(0.09952588747546542), np.float64(0.10795983904215972), np.float64(0.1389286372397327), np.float64(0.15894862890767397), np.float64(0.21487013447098435)], conc_latency_avg_list=[np.float64(0.010748498065643071), np.float64(0.011345051748109757), np.float64(0.012534768663302312), np.float64(0.01652655669718426), np.float64(0.022698258072245563), np.float64(0.029427221220718277), np.float64(0.04598988474439459), np.float64(0.057725249350751934), np.float64(0.07183680439119226), np.float64(0.08563514208636686), np.float64(0.10695830524236832)], st_ideal_insert_duration=0, st_search_stage_list=[], st_search_time_list=[], st_max_qps_list_list=[], st_recall_list=[], st_ndcg_list=[], st_serial_latency_p99_list=[], st_conc_failed_rate_list=[]), label=ResultLabel.NORMAL (interface.py:179) (637954)
+2026-03-31 08:24:54,330 | INFO |Task summary: run_id=2da93, task_label=2026033108 (models.py:409)
+2026-03-31 08:24:54,331 | INFO |DB       | db_label case                                            label      | load_dur    qps          latency(p99)    recall        max_load_count | label (models.py:409)
+2026-03-31 08:24:54,331 | INFO |-------- | -------- ----------------------------------------------- ---------- | ----------- ------------ --------------- ------------- -------------- | ----- (models.py:409)
+2026-03-31 08:24:54,331 | INFO |ScyllaDB |          Search Performance Test (10M Dataset, 1024 Dim) 2026033108 | 0.0         1365.1149    0.0147          0.9597        0              | :)    (models.py:409)
+2026-03-31 08:24:54,331 | WARNING: Replacing existing result with the same file_name: /home/ubuntu/VectorDBBench/vectordb_bench/results/ScyllaDB/result_20260331_2026033108_scylladb.json (models.py:273) (637954)
+2026-03-31 08:24:54,331 | INFO: write results to disk /home/ubuntu/VectorDBBench/vectordb_bench/results/ScyllaDB/result_20260331_2026033108_scylladb.json (models.py:275) (637954)
+2026-03-31 08:24:54,331 | INFO: Success to finish task: label=2026033108, run_id=2da93068146e47798d7f1f6dfe362297 (interface.py:218) (637954)
+
+MongoDB results: 
+
+681 QPS, 141 ms latency, recall=95.3% for concurrency=100
+239 QPS, 40.3 ms latency, recall=95.3% for concurrency=10
+83 QPS, 11.8 ms latency, recall=95.1% for concurrency=1
+
+
+= Index definition (no rescoring scenario) =
+
+CREATE CUSTOM INDEX vdb_bench_collection_vector_idx ON vdb_bench.vdb_bench_collection (vector) USING 'vector_index' WITH OPTIONS = {'search_beam_width': '192', 'index_version': '15490410-2cdc-11f1-ba15-4b6f179214b7', 'construction_beam_width': '384', 'quantization': 'i8', 'similarity_function': 'COSINE', 'oversampling': '10.0', 'maximum_node_connections': '64', 'rescoring': 'False'};
+
+
+== Experiment for k=100, Recall=92% ==
+
+ScyllaDB results:
+
+2026-03-31 15:36:21,315 | INFO: End search in concurrency 150: dur=31.49528144201031s, total_count=9909, qps=314.6186 (mp_runner.py:136) (813377)
+2026-03-31 15:36:22.763 WARNING streamlit.runtime.scriptrunner_utils.script_run_context: Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-31 15:36:23,440 | INFO: SpawnProcess-22:628 start search the entire test_data to get recall and latency (serial_runner.py:245) (899256)
+2026-03-31 15:36:23,484 | INFO: ScyllaDB created index on: vdb_bench_collection (scylladb.py:301) (899256)
+2026-03-31 15:37:54,835 | INFO: SpawnProcess-22:628 search entire test_data: cost=90.6425s, queries=3106, avg_recall=0.893, avg_ndcg=0.9163, avg_latency=0.0292, p99=0.0437 (serial_runner.py:284) (899256)
+2026-03-31 15:37:55,012 | INFO: Performance case got result: Metric(max_load_count=0, insert_duration=0.0, optimize_duration=0.0, load_duration=0.0, qps=320.9369, serial_latency_p99=np.float64(0.0437), recall=np.float64(0.893), ndcg=np.float64(0.9163), conc_num_list=[1, 5, 10, 20, 30, 40, 60, 80, 100, 120, 150], conc_qps_list=[33.9678, 169.5358, 281.2927, 312.6346, 287.893, 316.8278, 319.0116, 320.3151, 320.9369, 315.2132, 314.6186], conc_latency_p99_list=[np.float64(0.043879490019753574), np.float64(0.043806125002447516), np.float64(0.06234024877194308), np.float64(0.11904548991878978), np.float64(0.22698067515855655), np.float64(0.2384283682977548), np.float64(0.3616909697838127), np.float64(0.4647855478385464), np.float64(0.5763457310863306), np.float64(0.7413375061121766), np.float64(0.9140544940554537)], conc_latency_avg_list=[np.float64(0.02938946546386037), np.float64(0.029418287456077698), np.float64(0.03544535001431866), np.float64(0.06364938905552316), np.float64(0.1035111734506845), np.float64(0.1250292256739788), np.float64(0.18584331971055817), np.float64(0.2454486673143233), np.float64(0.30509112223690676), np.float64(0.37039740566128865), np.float64(0.46011018695946687)], st_ideal_insert_duration=0, st_search_stage_list=[], st_search_time_list=[], st_max_qps_list_list=[], st_recall_list=[], st_ndcg_list=[], st_serial_latency_p99_list=[], st_conc_failed_rate_list=[]) (task_runner.py:200) (813377)
+2026-03-31 15:37:55,012 | INFO: [1/1] finish case: {'label': <CaseLabel.Performance: 2>, 'name': 'Search Performance Test (10M Dataset, 1024 Dim)', 'dataset': {'data': {'name': 'Bioasq', 'size': 10000000, 'dim': 1024, 'metric_type': <MetricType.COSINE: 'COSINE'>}}, 'db': 'ScyllaDB'}, result=Metric(max_load_count=0, insert_duration=0.0, optimize_duration=0.0, load_duration=0.0, qps=320.9369, serial_latency_p99=np.float64(0.0437), recall=np.float64(0.893), ndcg=np.float64(0.9163), conc_num_list=[1, 5, 10, 20, 30, 40, 60, 80, 100, 120, 150], conc_qps_list=[33.9678, 169.5358, 281.2927, 312.6346, 287.893, 316.8278, 319.0116, 320.3151, 320.9369, 315.2132, 314.6186], conc_latency_p99_list=[np.float64(0.043879490019753574), np.float64(0.043806125002447516), np.float64(0.06234024877194308), np.float64(0.11904548991878978), np.float64(0.22698067515855655), np.float64(0.2384283682977548), np.float64(0.3616909697838127), np.float64(0.4647855478385464), np.float64(0.5763457310863306), np.float64(0.7413375061121766), np.float64(0.9140544940554537)], conc_latency_avg_list=[np.float64(0.02938946546386037), np.float64(0.029418287456077698), np.float64(0.03544535001431866), np.float64(0.06364938905552316), np.float64(0.1035111734506845), np.float64(0.1250292256739788), np.float64(0.18584331971055817), np.float64(0.2454486673143233), np.float64(0.30509112223690676), np.float64(0.37039740566128865), np.float64(0.46011018695946687)], st_ideal_insert_duration=0, st_search_stage_list=[], st_search_time_list=[], st_max_qps_list_list=[], st_recall_list=[], st_ndcg_list=[], st_serial_latency_p99_list=[], st_conc_failed_rate_list=[]), label=ResultLabel.NORMAL (interface.py:179) (813377)
+2026-03-31 15:37:55,013 | INFO |Task summary: run_id=c674c, task_label=2026033115 (models.py:409)
+2026-03-31 15:37:55,013 | INFO |DB       | db_label case                                            label      | load_dur    qps         latency(p99)    recall        max_load_count | label (models.py:409)
+2026-03-31 15:37:55,013 | INFO |-------- | -------- ----------------------------------------------- ---------- | ----------- ----------- --------------- ------------- -------------- | ----- (models.py:409)
+2026-03-31 15:37:55,013 | INFO |ScyllaDB |          Search Performance Test (10M Dataset, 1024 Dim) 2026033115 | 0.0         320.9369    0.0437          0.893         0              | :)    (models.py:409)
+2026-03-31 15:37:55,013 | WARNING: Replacing existing result with the same file_name: /home/ubuntu/VectorDBBench/vectordb_bench/results/ScyllaDB/result_20260331_2026033115_scylladb.json (models.py:273) (813377)
+2026-03-31 15:37:55,013 | INFO: write results to disk /home/ubuntu/VectorDBBench/vectordb_bench/results/ScyllaDB/result_20260331_2026033115_scylladb.json (models.py:275) (813377)
+2026-03-31 15:37:55,014 | INFO: Success to finish task: label=2026033115, run_id=c674c83acd7c41e0bed21356a9449ba4 (interface.py:218) (813377)
+
+
+== Experiment for k=10, Recall=89.4% ==
+
+ScyllaDB results:
+
+2026-03-31 15:20:59,333 | INFO: End search in concurrency 150: dur=31.186158070049714s, total_count=40547, qps=1300.1602 (mp_runner.py:136) (727134)
+2026-03-31 15:21:00.811 WARNING streamlit.runtime.scriptrunner_utils.script_run_context: Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-31 15:21:01,495 | INFO: SpawnProcess-21:628 start search the entire test_data to get recall and latency (serial_runner.py:245) (812965)
+2026-03-31 15:21:01,541 | INFO: ScyllaDB created index on: vdb_bench_collection (scylladb.py:301) (812965)
+2026-03-31 15:21:32,744 | INFO: SpawnProcess-21:628 search entire test_data: cost=30.9815s, queries=3106, avg_recall=0.8675, avg_ndcg=0.8963, avg_latency=0.01, p99=0.0146 (serial_runner.py:284) (812965)
+2026-03-31 15:21:32,937 | INFO: Performance case got result: Metric(max_load_count=0, insert_duration=0.0, optimize_duration=0.0, load_duration=0.0, qps=1350.0621, serial_latency_p99=np.float64(0.0146), recall=np.float64(0.8675), ndcg=np.float64(0.8963), conc_num_list=[1, 5, 10, 20, 30, 40, 60, 80, 100, 120, 150], conc_qps_list=[105.7514, 528.7037, 1007.7332, 1305.1233, 1323.429, 1333.3727, 1335.4159, 1350.0621, 1345.3274, 1337.6838, 1300.1602], conc_latency_p99_list=[np.float64(0.013230686696479097), np.float64(0.013163067710120227), np.float64(0.015092234682524576), np.float64(0.02647116318112241), np.float64(0.04141774289775639), np.float64(0.05522597099712584), np.float64(0.08424681640928612), np.float64(0.1112760506104678), np.float64(0.14377281632390795), np.float64(0.17415670066839087), np.float64(0.23817189414752651)], conc_latency_avg_list=[np.float64(0.00943792000394338), np.float64(0.009435378313867773), np.float64(0.009893934782789653), np.float64(0.01525237255691706), np.float64(0.02253749574139828), np.float64(0.02977509277404828), np.float64(0.04439977939006794), np.float64(0.058340115745259484), np.float64(0.07304092708053347), np.float64(0.08787065931634383), np.float64(0.1113229697321491)], st_ideal_insert_duration=0, st_search_stage_list=[], st_search_time_list=[], st_max_qps_list_list=[], st_recall_list=[], st_ndcg_list=[], st_serial_latency_p99_list=[], st_conc_failed_rate_list=[]) (task_runner.py:200) (727134)
+2026-03-31 15:21:32,938 | INFO: [1/1] finish case: {'label': <CaseLabel.Performance: 2>, 'name': 'Search Performance Test (10M Dataset, 1024 Dim)', 'dataset': {'data': {'name': 'Bioasq', 'size': 10000000, 'dim': 1024, 'metric_type': <MetricType.COSINE: 'COSINE'>}}, 'db': 'ScyllaDB'}, result=Metric(max_load_count=0, insert_duration=0.0, optimize_duration=0.0, load_duration=0.0, qps=1350.0621, serial_latency_p99=np.float64(0.0146), recall=np.float64(0.8675), ndcg=np.float64(0.8963), conc_num_list=[1, 5, 10, 20, 30, 40, 60, 80, 100, 120, 150], conc_qps_list=[105.7514, 528.7037, 1007.7332, 1305.1233, 1323.429, 1333.3727, 1335.4159, 1350.0621, 1345.3274, 1337.6838, 1300.1602], conc_latency_p99_list=[np.float64(0.013230686696479097), np.float64(0.013163067710120227), np.float64(0.015092234682524576), np.float64(0.02647116318112241), np.float64(0.04141774289775639), np.float64(0.05522597099712584), np.float64(0.08424681640928612), np.float64(0.1112760506104678), np.float64(0.14377281632390795), np.float64(0.17415670066839087), np.float64(0.23817189414752651)], conc_latency_avg_list=[np.float64(0.00943792000394338), np.float64(0.009435378313867773), np.float64(0.009893934782789653), np.float64(0.01525237255691706), np.float64(0.02253749574139828), np.float64(0.02977509277404828), np.float64(0.04439977939006794), np.float64(0.058340115745259484), np.float64(0.07304092708053347), np.float64(0.08787065931634383), np.float64(0.1113229697321491)], st_ideal_insert_duration=0, st_search_stage_list=[], st_search_time_list=[], st_max_qps_list_list=[], st_recall_list=[], st_ndcg_list=[], st_serial_latency_p99_list=[], st_conc_failed_rate_list=[]), label=ResultLabel.NORMAL (interface.py:179) (727134)
+2026-03-31 15:21:32,938 | INFO |Task summary: run_id=9ce47, task_label=2026033115 (models.py:409)
+2026-03-31 15:21:32,938 | INFO |DB       | db_label case                                            label      | load_dur    qps          latency(p99)    recall        max_load_count | label (models.py:409)
+2026-03-31 15:21:32,938 | INFO |-------- | -------- ----------------------------------------------- ---------- | ----------- ------------ --------------- ------------- -------------- | ----- (models.py:409)
+2026-03-31 15:21:32,938 | INFO |ScyllaDB |          Search Performance Test (10M Dataset, 1024 Dim) 2026033115 | 0.0         1350.0621    0.0146          0.8675        0              | :)    (models.py:409)
+2026-03-31 15:21:32,938 | INFO: write results to disk /home/ubuntu/VectorDBBench/vectordb_bench/results/ScyllaDB/result_20260331_2026033115_scylladb.json (models.py:275) (727134)
+2026-03-31 15:21:32,939 | INFO: Success to finish task: label=2026033115, run_id=9ce4781bcb09482892fb953d883121dc (interface.py:218) (727134)
+
